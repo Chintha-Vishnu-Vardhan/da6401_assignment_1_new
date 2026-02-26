@@ -2,7 +2,7 @@
 wandb/
 
 # Ignore venv folder
-venv/
+.venv/
 
 # Ignore vardhan folder
 vardhan/
