@@ -1,0 +1,8 @@
+# Ignore wandb folder
+wandb/
+
+# Ignore venv folder
+venv/
+
+# Ignore vardhan folder
+vardhan/
