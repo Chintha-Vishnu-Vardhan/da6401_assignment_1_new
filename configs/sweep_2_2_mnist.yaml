@@ -1,0 +1,39 @@
+name: project1_bayes_sweep
+program: src/train.py
+method: bayes
+
+metric:
+  name: val_accuracy
+  goal: maximize
+
+parameters:
+  dataset:
+    value: mnist
+  epochs:
+    values: [8, 10, 12]
+  batch_size:
+    values: [32, 64, 128]
+  optimizer:
+    values: [sgd, momentum, nag, rmsprop, adam, nadam]
+  learning_rate:
+    values: [0.0005, 0.001, 0.003, 0.01]
+  weight_decay:
+    values: [0.0, 0.0001, 0.001]
+  num_layers:
+    values: [2, 3, 4]
+  hidden_size:
+    values: ["[64,64]", "[128,128]", "[128,128,128]", "[64,128,64]", "[128,64,32,16]"]
+  activation:
+    values: [relu, tanh, sigmoid]
+  loss:
+    values: [cross_entropy, mse]
+  weight_init:
+    values: [xavier, random]
+  wandb_project:
+    value: DA6401_Assignment1
+
+command:
+  - ${env}
+  - ./.venv/Scripts/python.exe
+  - ${program}
+  - ${args}

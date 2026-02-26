@@ -1,6 +1,6 @@
 """
-Main Training Script
-Entry point for training neural networks with command-line arguments
+Main Training Script - Project 1 Optimized
+Entry point for training neural networks with robust W&B Sweep support.
 """
 
 import argparse
@@ -11,255 +11,121 @@ from typing import Any, Dict
 
 import numpy as np
 
+# Import NeuralNetwork and data_loader (ensure these paths are correct)
 from ann.neural_network import NeuralNetwork
 from utils.data_loader import load_dataset
 
-
 def parse_arguments():
-    """
-    Parse command-line arguments.
-
-    Arguments (aligned with assignment spec):
-    -d, --dataset: 'mnist' or 'fashion'
-    -e, --epochs: Number of training epochs
-    -b, --batch_size: Mini-batch size
-    -o, --optimizer: 'sgd', 'momentum', 'nag', 'rmsprop', 'adam', 'nadam'
-    -lr, --learning_rate: Learning rate for optimizer
-    -wd, --weight_decay: L2 regularization strength
-    -nhl, --num_layers: Number of hidden layers
-    -sz, --hidden_size: Hidden layer sizes (provide multiple values)
-    -a, --activation: Activation function ('relu', 'sigmoid', 'tanh')
-    -l, --loss: Loss function ('cross_entropy', 'mse')
-    -wi, --weight_init: Weight initialization method ('random', 'xavier', 'zeros')
-    --wandb_project: W&B project name (optional)
-    --model_save_path: Relative path to save trained model (.npy)
-    --config_save_path: Relative path to save config (.json)
-    """
     parser = argparse.ArgumentParser(description="Train a neural network")
 
-    parser.add_argument(
-        "-d",
-        "--dataset",
-        type=str,
-        required=True,
-        choices=["mnist", "fashion", "fashion_mnist"],
-        help="Dataset to use",
-    )
-    parser.add_argument(
-        "-e",
-        "--epochs",
-        type=int,
-        default=10,
-        help="Number of training epochs",
-    )
-    parser.add_argument(
-        "-b",
-        "--batch_size",
-        type=int,
-        default=64,
-        help="Mini-batch size",
-    )
-    parser.add_argument(
-        "-o",
-        "--optimizer",
-        type=str,
-        default="adam",
-        choices=["sgd", "momentum", "nag", "rmsprop", "adam", "nadam"],
-        help="Optimization algorithm",
-    )
-    parser.add_argument(
-        "-lr",
-        "--learning_rate",
-        type=float,
-        default=1e-3,
-        help="Learning rate",
-    )
-    parser.add_argument(
-        "-wd",
-        "--weight_decay",
-        type=float,
-        default=0.0,
-        help="L2 weight decay (regularization strength)",
-    )
-    parser.add_argument(
-        "-nhl",
-        "--num_layers",
-        type=int,
-        default=2,
-        help="Number of hidden layers",
-    )
-    parser.add_argument(
-        "-sz",
-        "--hidden_size",
-        type=str,
-        nargs="+",
-        default=[128, 128],
-        help="List of hidden layer sizes",
-    )
-    parser.add_argument(
-        "-a",
-        "--activation",
-        type=str,
-        default="relu",
-        choices=["relu", "sigmoid", "tanh"],
-        help="Hidden layer activation function",
-    )
-    parser.add_argument(
-        "-l",
-        "--loss",
-        type=str,
-        default="cross_entropy",
-        choices=["cross_entropy", "mse"],
-        help="Loss function",
-    )
-    parser.add_argument(
-        "-wi",
-        "--weight_init",
-        type=str,
-        default="xavier",
-        choices=["random", "xavier", "zeros"],
-        help="Weight initialization method",
-    )
-    parser.add_argument(
-        "--wandb_project",
-        type=str,
-        default=None,
-        help="Weights & Biases project name (optional)",
-    )
-    parser.add_argument(
-        "--model_save_path",
-        type=str,
-        default="best_model.npy",
-        help="Relative path to save trained model weights (.npy)",
-    )
-    parser.add_argument(
-        "--config_save_path",
-        type=str,
-        default="config.json",
-        help="Relative path to save model configuration (.json)",
-    )
+    # Arguments aligned with assignment spec
+    parser.add_argument("-d", "--dataset", type=str, required=True, choices=["mnist", "fashion", "fashion_mnist"])
+    parser.add_argument("-e", "--epochs", type=int, default=10)
+    parser.add_argument("-b", "--batch_size", type=int, default=64)
+    parser.add_argument("-o", "--optimizer", type=str, default="adam", 
+                        choices=["sgd", "momentum", "nag", "rmsprop", "adam", "nadam"])
+    parser.add_argument("-lr", "--learning_rate", type=float, default=1e-3)
+    parser.add_argument("-wd", "--weight_decay", type=float, default=0.0)
+    parser.add_argument("-nhl", "--num_layers", type=int, default=2)
+    parser.add_argument("-sz", "--hidden_size", type=str, nargs="+", default=["128", "128"])
+    parser.add_argument("-a", "--activation", type=str, default="relu", choices=["relu", "sigmoid", "tanh"])
+    parser.add_argument("-l", "--loss", type=str, default="cross_entropy", choices=["cross_entropy", "mse"])
+    parser.add_argument("-wi", "--weight_init", type=str, default="xavier", choices=["random", "xavier", "zeros"])
+    
+    parser.add_argument("--wandb_project", type=str, default=None)
+    parser.add_argument("--model_save_path", type=str, default="best_model.npy")
+    parser.add_argument("--config_save_path", type=str, default="config.json")
 
     return parser.parse_args()
 
-
 def maybe_init_wandb(args: Any):
-    """Initialize W&B if a project name is provided and wandb is installed."""
+    """Initialize W&B if project name provided."""
     if not args.wandb_project:
         return None
     try:
         import wandb
-
         run = wandb.init(project=args.wandb_project, config=vars(args))
         return run
     except ImportError:
-        print("wandb not installed; proceeding without W&B logging.")
+        print("wandb not installed; proceeding without logging.")
         return None
 
-
-def save_model_and_config(
-    model: NeuralNetwork,
-    args: Any,
-    history: Dict[str, Any],
-) -> None:
+def save_model_and_config(model: NeuralNetwork, args: Any, history: Dict[str, Any]) -> None:
     """Save model weights to .npy and configuration to .json."""
-    # Aggregate weights and biases
     layers_params = []
     for layer in model.layers:
-        layers_params.append(
-            {
-                "W": layer.W,
-                "b": layer.b,
-                "input_dim": layer.input_dim,
-                "output_dim": layer.output_dim,
-                "activation": layer.activation_name,
-            }
-        )
+        layers_params.append({
+            "W": layer.W,
+            "b": layer.b,
+            "input_dim": layer.input_dim,
+            "output_dim": layer.output_dim,
+            "activation": layer.activation_name,
+        })
 
     model_dict = {
         "layers": layers_params,
         "input_dim": model.input_dim,
         "num_classes": model.num_classes,
-        "activation": model.activation_name,
-        "loss": model.loss_name,
+        "activation": args.activation,
+        "loss": args.loss,
         "history": history,
     }
 
-    model_save_path = args.model_save_path
-    config_save_path = args.config_save_path
+    os.makedirs(os.path.dirname(args.model_save_path) or ".", exist_ok=True)
+    os.makedirs(os.path.dirname(args.config_save_path) or ".", exist_ok=True)
 
-    os.makedirs(os.path.dirname(model_save_path) or ".", exist_ok=True)
-    os.makedirs(os.path.dirname(config_save_path) or ".", exist_ok=True)
+    np.save(args.model_save_path, model_dict, allow_pickle=True)
 
-    # Save weights
-    np.save(model_save_path, model_dict, allow_pickle=True)
-
-    # Save config (JSON-serializable)
-    config = {
-        "dataset": args.dataset,
-        "epochs": args.epochs,
-        "batch_size": args.batch_size,
-        "optimizer": args.optimizer,
-        "learning_rate": args.learning_rate,
-        "weight_decay": args.weight_decay,
-        "num_layers": args.num_layers,
-        "hidden_size": args.hidden_size,
-        "activation": args.activation,
-        "loss": args.loss,
-        "weight_init": args.weight_init,
-        "model_path": model_save_path,
-    }
-
-    with open(config_save_path, "w", encoding="utf-8") as f:
+    config = vars(args)
+    with open(args.config_save_path, "w", encoding="utf-8") as f:
         json.dump(config, f, indent=4)
 
-
 def main():
-    """
-    Main training function.
-    """
     args = parse_arguments()
 
-    # Convert hidden_size arguments (strings) into a list of ints.
-    # Supports both:
-    #   - CLI style: -sz 128 128
-    #   - wandb style: --hidden_size="[128, 128]"
+    # --- 1. Robust Hidden Size Parsing ---
+    # W&B often passes lists as strings like "[64, 64]"
     raw_hidden = args.hidden_size
-    if len(raw_hidden) == 1 and isinstance(raw_hidden[0], str) and raw_hidden[0].startswith("["):
-        try:
-            parsed_list = ast.literal_eval(raw_hidden[0])
-            args.hidden_size = [int(x) for x in parsed_list]
-        except (SyntaxError, ValueError, TypeError):
-            raise ValueError(f"Could not parse hidden_size list from {raw_hidden[0]!r}")
+    if len(raw_hidden) == 1 and isinstance(raw_hidden[0], str):
+        val = raw_hidden[0]
+        if val.startswith("["):
+            try:
+                args.hidden_size = ast.literal_eval(val)
+            except (ValueError, SyntaxError):
+                # Fallback: remove brackets and split
+                args.hidden_size = [int(x) for x in val.replace('[','').replace(']','').split(',')]
+        else:
+            args.hidden_size = [int(val)]
     else:
         args.hidden_size = [int(x) for x in raw_hidden]
 
-    # Ensure hidden_size length matches num_layers
-    if len(args.hidden_size) == 1 and args.num_layers > 1:
-        args.hidden_size = args.hidden_size * args.num_layers
-    elif len(args.hidden_size) != args.num_layers:
-        # Fallback: truncate or pad with last value
-        if len(args.hidden_size) > args.num_layers:
-            args.hidden_size = args.hidden_size[: args.num_layers]
+    # --- 2. Fix Mismatch between num_layers and hidden_size ---
+    # This prevents the script from crashing during a Sweep
+    actual_h_len = len(args.hidden_size)
+    if actual_h_len != args.num_layers:
+        print(f"Warning: num_layers ({args.num_layers}) != hidden_size list length ({actual_h_len}).")
+        if actual_h_len == 1:
+            # Repeat the single value across all layers
+            args.hidden_size = args.hidden_size * args.num_layers
+        elif actual_h_len > args.num_layers:
+            # Truncate
+            args.hidden_size = args.hidden_size[:args.num_layers]
         else:
-            last = args.hidden_size[-1]
-            args.hidden_size = args.hidden_size + [last] * (args.num_layers - len(args.hidden_size))
+            # Pad with the last value
+            padding = [args.hidden_size[-1]] * (args.num_layers - actual_h_len)
+            args.hidden_size.extend(padding)
+        print(f"Adjusted hidden_size to: {args.hidden_size}")
 
-    # Load data
-    (
-        X_train,
-        y_train,
-        X_val,
-        y_val,
-        _X_test,
-        _y_test_onehot,
-        _y_test_labels,
-    ) = load_dataset(args.dataset)
+    # --- 3. Load Data ---
+    data = load_dataset(args.dataset)
+    # Expected format from your code: (X_train, y_train, X_val, y_val, ...)
+    X_train, y_train, X_val, y_val = data[0], data[1], data[2], data[3]
 
-    # Initialize model
-    model = NeuralNetwork(args, input_dim=X_train.shape[1], num_classes=y_train.shape[1])
-
-    # Optional W&B
+    # --- 4. Initialize W&B ---
     wandb_run = maybe_init_wandb(args)
+
+    # --- 5. Initialize & Train Model ---
+    model = NeuralNetwork(args, input_dim=X_train.shape[1], num_classes=y_train.shape[1])
 
     history = model.train(
         X_train,
@@ -271,15 +137,16 @@ def main():
         wandb_run=wandb_run,
     )
 
+    # --- 6. Cleanup & Save ---
     if wandb_run is not None:
+        import wandb
+        # Ensure we log the metric the sweep is looking for: val_accuracy
+        final_acc = history.get('val_accuracy', [0])[-1]
+        wandb.log({"val_accuracy": final_acc})
         wandb_run.finish()
 
-    # Save trained model and config
     save_model_and_config(model, args, history)
-
-    print("Training complete!")
-
+    print(f"Training complete! Model saved to {args.model_save_path}")
 
 if __name__ == "__main__":
     main()
-
