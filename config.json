@@ -1,0 +1,17 @@
+{
+    "dataset": "mnist",
+    "epochs": 1,
+    "batch_size": 128,
+    "optimizer": "adam",
+    "learning_rate": 0.001,
+    "weight_decay": 0.0,
+    "num_layers": 2,
+    "hidden_size": [
+        64,
+        64
+    ],
+    "activation": "relu",
+    "loss": "mse",
+    "weight_init": "xavier",
+    "model_path": "best_model.npy"
+}
