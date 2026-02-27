@@ -2,8 +2,8 @@
     "dataset": "mnist",
     "epochs": 5,
     "batch_size": 64,
-    "optimizer": "sgd",
-    "learning_rate": 0.1,
+    "optimizer": "adam",
+    "learning_rate": 0.001,
     "weight_decay": 0.0,
     "num_layers": 3,
     "hidden_size": [
@@ -11,7 +11,7 @@
         128,
         128
     ],
-    "activation": "tanh",
+    "activation": "relu",
     "loss": "cross_entropy",
     "weight_init": "xavier",
     "wandb_project": "DA6401_Assignment1",
