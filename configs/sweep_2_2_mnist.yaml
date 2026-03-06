@@ -1,4 +1,4 @@
-name: project1_bayes_sweep
+name: project1_bayes_sweep_revised
 program: src/train.py
 method: bayes
 
@@ -14,7 +14,7 @@ parameters:
   batch_size:
     values: [32, 64, 128]
   optimizer:
-    values: [sgd, momentum, nag, rmsprop, adam, nadam]
+    values: [sgd, momentum, nag, rmsprop] 
   learning_rate:
     values: [0.0005, 0.001, 0.003, 0.01]
   weight_decay:
@@ -30,7 +30,7 @@ parameters:
   weight_init:
     values: [xavier, random]
   wandb_project:
-    value: DA6401_Assignment1
+    value: DA6401__Intro_to_DL_Assignment1
 
 command:
   - ${env}

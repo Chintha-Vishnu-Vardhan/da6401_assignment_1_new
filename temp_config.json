@@ -1,0 +1,20 @@
+{
+    "dataset": "mnist",
+    "epochs": 15,
+    "batch_size": 64,
+    "optimizer": "sgd",
+    "learning_rate": 0.1,
+    "weight_decay": 0.0,
+    "num_layers": 3,
+    "hidden_size": [
+        128,
+        128,
+        128
+    ],
+    "activation": "tanh",
+    "loss": "cross_entropy",
+    "weight_init": "xavier",
+    "wandb_project": "DA6401_Assignment1",
+    "model_path": "temp_model.npy",
+    "config_save_path": "temp_config.json"
+}

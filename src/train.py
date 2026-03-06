@@ -18,24 +18,22 @@ from utils.data_loader import load_dataset
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Train/Inference for Neural Network")
 
-    # Required by Guidelines: Best configuration as defaults
     parser.add_argument("-d", "--dataset", type=str, default="mnist", choices=["mnist", "fashion", "fashion_mnist"])
-    parser.add_argument("-e", "--epochs", type=int, default=12)
-    parser.add_argument("-b", "--batch_size", type=int, default=64)
-    parser.add_argument("-o", "--optimizer", type=str, default="nadam", 
-                        choices=["sgd", "momentum", "nag", "rmsprop", "adam", "nadam"])
-    parser.add_argument("-lr", "--learning_rate", type=float, default=0.003)
+    parser.add_argument("-e", "--epochs", type=int, default=10)
+    parser.add_argument("-b", "--batch_size", type=int, default=128)
+    parser.add_argument("-o", "--optimizer", type=str, default="rmsprop", 
+                        choices=["sgd", "momentum", "nag", "rmsprop"]) 
+    parser.add_argument("-lr", "--learning_rate", type=float, default=0.001)
     parser.add_argument("-wd", "--weight_decay", type=float, default=0.0)
     parser.add_argument("-nhl", "--num_layers", type=int, default=3)
     parser.add_argument("-sz", "--hidden_size", type=str, nargs="+", default=["128", "128", "128"])
-    parser.add_argument("-a", "--activation", type=str, default="sigmoid", choices=["relu", "sigmoid", "tanh"])
+    parser.add_argument("-a", "--activation", type=str, default="relu", choices=["relu", "sigmoid", "tanh"])
     parser.add_argument("-l", "--loss", type=str, default="mse", choices=["cross_entropy", "mse"])
     parser.add_argument("-wi", "--weight_init", type=str, default="xavier", choices=["random", "xavier", "zeros"])
     
-    # Revised Guideline additions
     parser.add_argument("-w_p", "--wandb_project", type=str, default=None)
-    parser.add_argument("--model_path", type=str, default="best_model.npy")
-    parser.add_argument("--config_save_path", type=str, default="config.json")
+    parser.add_argument("--model_path", type=str, default="src/best_model.npy")
+    parser.add_argument("--config_save_path", type=str, default="src/config.json")
 
     return parser.parse_args()
 
@@ -61,7 +59,10 @@ def save_model_and_config(model: NeuralNetwork, args: Any) -> None:
     # Save Weights EXACTLY as requested by revised guidelines
     best_weights = model.get_weights()
     os.makedirs(os.path.dirname(args.model_path) or ".", exist_ok=True)
-    np.save(args.model_path, best_weights)
+    
+    # FIX: Wrap in a numpy object array to prevent the inhomogeneous shape error
+    weights_array = np.array(best_weights, dtype=object)
+    np.save(args.model_path, weights_array, allow_pickle=True)
 
 def main():
     args = parse_arguments()
@@ -128,8 +129,8 @@ def main():
         wandb.log({"val_accuracy": final_acc})
         wandb_run.finish()
 
-    save_model_and_config(model, args, history)
-    print(f"Training complete! Model saved to {args.model_save_path}")
+    save_model_and_config(model, args)
+    print(f"Training complete! Model saved to {args.model_path}")
 
 if __name__ == "__main__":
     main()
