@@ -14,7 +14,7 @@
     "activation": "relu",
     "loss": "mse",
     "weight_init": "xavier",
-    "wandb_project": "DA6401_Assignment1",
+    "wandb_project": null,
     "model_path": "src/best_model.npy",
     "config_save_path": "src/best_config.json"
 }
