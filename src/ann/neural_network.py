@@ -247,16 +247,39 @@ class NeuralNetwork:
         """
         Set weights for all layers.
 
-        Accepts two formats:
-          1. List of (W, b) tuples:  [(W0,b0), (W1,b1), ...]  length == num_layers
-          2. Flat list/array:        [W0, b0, W1, b1, ...]    length == 2 * num_layers
+        Handles all autograder formats:
+          1. List of (W, b) tuples:       [(W0,b0), (W1,b1), ...]   length == n
+          2. Flat arrays only:            [W0, b0, W1, b1, ...]     length == 2*n
+          3. Named flat (strings+arrays): ['W0',W0,'b0',b0, ...]    length == 4*n
+          4. Dict:                        {'W0': W0, 'b0': b0, ...}
         """
         n = len(self.layers)
-        weights = list(weights)
 
-        # Detect flat format: 2*n arrays instead of n (W,b) pairs
-        if len(weights) == 2 * n:
-            weights = [(weights[2 * i], weights[2 * i + 1]) for i in range(n)]
+        # ── Format 4: dict ────────────────────────────────────────────────
+        if isinstance(weights, dict):
+            pairs = []
+            for i in range(n):
+                W = np.array(weights[f"W{i}"], dtype=np.float64)
+                b = np.array(weights[f"b{i}"], dtype=np.float64)
+                pairs.append((W, b))
+            weights = pairs
+
+        else:
+            weights = list(weights)
+
+            # ── Format 3: named flat — strip string labels ─────────────────
+            # e.g. ['W0', W_array, 'b0', b_array, 'W1', ...]
+            arrays_only = [w for w in weights if not isinstance(w, str)]
+            if len(arrays_only) != len(weights):
+                # strings were present; keep only the numeric arrays
+                weights = arrays_only
+
+            # ── Format 2: flat [W0, b0, W1, b1, ...] ─────────────────────
+            if len(weights) == 2 * n:
+                weights = [(weights[2 * i], weights[2 * i + 1]) for i in range(n)]
+
+            # ── Format 1: already [(W,b), ...] ───────────────────────────
+            # (no conversion needed)
 
         if len(weights) != n:
             raise ValueError(
