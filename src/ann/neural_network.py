@@ -120,11 +120,24 @@ class NeuralNetwork:
 
         raise ValueError(f"Unsupported loss function: {self.loss_name}")
 
-    def backward(self, y_true: np.ndarray, y_pred: np.ndarray) -> Tuple[List[np.ndarray], List[np.ndarray]]:
+    def backward(self, y_true: np.ndarray, y_pred: np.ndarray = None) -> List[np.ndarray]:
+        """
+        Backward pass. Returns grad_W list from LAST layer to FIRST (as per spec).
+
+        NOTE: y_pred is intentionally ignored for gradient computation.
+        We always recompute from self.last_logits to guarantee correctness
+        regardless of how the caller obtained y_pred.
+        """
+        if self.last_logits is None:
+            raise RuntimeError("Forward must be called before backward.")
+
+        # Always derive the output gradient from stored logits, never from y_pred
         if self.loss_name in ("cross_entropy", "crossentropy", "ce"):
-            d_out = cross_entropy_grad(y_true, y_pred)
+            from .activations import softmax as _softmax
+            probs = _softmax(self.last_logits)
+            d_out = cross_entropy_grad(y_true, probs)
         elif self.loss_name in ("mse", "mean_squared_error"):
-            d_out = mse_grad(y_true, y_pred)
+            d_out = mse_grad(y_true, self.last_logits)
         else:
             raise ValueError(f"Unsupported loss function: {self.loss_name}")
 
@@ -132,15 +145,13 @@ class NeuralNetwork:
         grad_W_list: List[np.ndarray] = []
         grad_b_list: List[np.ndarray] = []
 
+        # Iterate reversed → appends from output layer toward input layer (last→first)
         for layer in reversed(self.layers):
             grad = layer.backward(grad)
             grad_W_list.append(layer.grad_W)
             grad_b_list.append(layer.grad_b)
 
-        # Return in forward order: layer 0 first, output layer last
-        grad_W_list.reverse()
-        grad_b_list.reverse()
-
+        # grad_W_list is already last-to-first as required by spec
         return grad_W_list, grad_b_list
 
     def update_weights(self) -> None:
