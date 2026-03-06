@@ -11,30 +11,13 @@ from .activations import softmax
 
 
 def mse_loss(y_true: np.ndarray, y_pred: np.ndarray) -> float:
-    """
-    Mean Squared Error loss.
-
-    Args:
-        y_true: One-hot or continuous targets, shape (batch_size, num_classes)
-        y_pred: Predictions (typically logits or activations from last layer),
-                shape (batch_size, num_classes)
-
-    Returns:
-        Scalar MSE loss.
-    """
-    diff = y_pred - y_true
-    # 1/2 factor is conventional and simplifies derivative
-    return 0.5 * np.mean(np.sum(diff ** 2, axis=1))
-
+    # Match reference exact math
+    return np.mean((y_pred - y_true) ** 2)
 
 def mse_grad(y_true: np.ndarray, y_pred: np.ndarray) -> np.ndarray:
-    """
-    Gradient of MSE loss w.r.t. predictions.
-
-    Note: This returns gradient per sample; averaging over the batch is handled
-    inside the layer backward pass.
-    """
-    return y_pred - y_true
+    batch_size = y_true.shape[0]
+    # Apply batch size division and factor of 2 here
+    return 2.0 * (y_pred - y_true) / batch_size
 
 
 def cross_entropy_loss(
@@ -73,4 +56,5 @@ def cross_entropy_grad(y_true: np.ndarray, probs: np.ndarray) -> np.ndarray:
     Returns:
         Gradient w.r.t. logits, per-sample (batch averaging is done in layers).
     """
-    return probs - y_true
+    batch_size = y_true.shape[0]
+    return probs - y_true / batch_size

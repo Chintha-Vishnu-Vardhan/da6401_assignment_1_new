@@ -46,27 +46,17 @@ class NeuralLayer:
         self.grad_b: Optional[np.ndarray] = None
 
     def _init_parameters(self):
-        """Initialize weights and biases."""
         if self.weight_init == "zeros":
             W = np.zeros((self.input_dim, self.output_dim), dtype=np.float64)
         elif self.weight_init == "random":
-            # Small random values
-            limit = 0.01
-            W = self.rng.uniform(
-                low=-limit,
-                high=limit,
-                size=(self.input_dim, self.output_dim),
-            )
+            # FIX: Use normal distribution
+            W = np.random.randn(self.input_dim, self.output_dim) * 0.01
         else:  # "xavier"
-            # Xavier:  uniform initialization
-            limit = np.sqrt(6.0 / (self.input_dim + self.output_dim))
-            W = self.rng.uniform(
-                low=-limit,
-                high=limit,
-                size=(self.input_dim, self.output_dim),
-            )
+            # FIX: Use normal distribution with standard deviation
+            std = np.sqrt(2.0 / (self.input_dim + self.output_dim))
+            W = np.random.randn(self.input_dim, self.output_dim) * std
 
-        b = np.zeros(self.output_dim, dtype=np.float64)
+        b = np.zeros((1, self.output_dim), dtype=np.float64)
         return W, b
 
     def forward(self, X: np.ndarray) -> np.ndarray:
@@ -106,20 +96,8 @@ class NeuralLayer:
         Side effects:
             Updates self.grad_W and self.grad_b for optimizer access.
         """
-        if self.X is None or self.Z is None:
-            raise RuntimeError("Forward must be called before backward.")
-
-        if self.activation_name is None:
-            dZ = dA
-        else:
-            derivative_fn = DERIVATIVES[self.activation_name]
-            dZ = dA * derivative_fn(self.Z)
-
-        batch_size = self.X.shape[0]
-
-        # Gradients averaged over the mini-batch
-        self.grad_W = (self.X.T @ dZ) / batch_size
-        self.grad_b = np.sum(dZ, axis=0) / batch_size
+        self.grad_W = (self.X.T @ dZ)
+        self.grad_b = np.sum(dZ, axis=0, keepdims=True)
 
         dX = dZ @ self.W.T
         return dX
