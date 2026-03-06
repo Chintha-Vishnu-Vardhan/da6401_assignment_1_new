@@ -178,11 +178,13 @@ class NeuralNetwork:
     ) -> Dict[str, List[float]]:
         num_samples = X_train.shape[0]
         history: Dict[str, List[float]] = {
-            "train_loss": [],
-            "train_accuracy": [],
-            "val_loss": [],
-            "val_accuracy": [],
+            "train_loss": [], "train_accuracy": [],
+            "val_loss": [], "val_accuracy": [],
         }
+
+        # --- NEW: Track best weights ---
+        best_val_acc = -1.0
+        best_weights = None
 
         for epoch in range(epochs):
             grad_norms_layer0: List[float] = []
@@ -224,6 +226,11 @@ class NeuralNetwork:
                 val_loss, val_acc = self.evaluate(X_val, y_val)
                 history["val_loss"].append(val_loss)
                 history["val_accuracy"].append(val_acc)
+                
+                # --- NEW: Save a copy of the weights if this is the best epoch ---
+                if val_acc > best_val_acc:
+                    best_val_acc = val_acc
+                    best_weights = [(W.copy(), b.copy()) for W, b in self.get_weights()]
 
             if grad_norms_layer0:
                 history.setdefault("grad_norm_layer0", []).append(float(np.mean(grad_norms_layer0)))
@@ -244,6 +251,11 @@ class NeuralNetwork:
                 if "activation_sparsity_layer0" in history:
                     log_data["activation_sparsity_layer0"] = history["activation_sparsity_layer0"][-1]
                 wandb_run.log(log_data)
+
+        # --- NEW: Restore the best weights before finishing ---
+        if best_weights is not None:
+            self.set_weights(best_weights)
+            print(f"Restored best weights with Val Accuracy: {best_val_acc:.4f}")
 
         return history
 
