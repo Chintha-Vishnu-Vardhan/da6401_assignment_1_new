@@ -29,17 +29,8 @@ class NeuralNetwork:
         num_classes: int = 10,
         rng: Optional[np.random.Generator] = None,
     ):
-        """
-        Initialize the neural network.
-
-        Args:
-            cli_args: Command-line arguments for configuring the network
-            input_dim: Input feature dimension (default 784 for MNIST)
-            num_classes: Number of output classes (default 10)
-        """
         self.rng = rng or np.random.default_rng()
 
-        # Defensive parsing of CLI arguments (support multiple possible names)
         activation = getattr(cli_args, "activation", "relu")
         loss_name = getattr(cli_args, "loss", "cross_entropy")
         optimizer_name = getattr(cli_args, "optimizer", "sgd")
@@ -47,7 +38,6 @@ class NeuralNetwork:
         weight_decay = getattr(cli_args, "weight_decay", getattr(cli_args, "wd", 0.0))
         weight_init = getattr(cli_args, "weight_init", getattr(cli_args, "wi", "xavier"))
 
-        # Hidden layer configuration
         hidden_sizes = None
         if hasattr(cli_args, "hidden_size") and getattr(cli_args, "hidden_size") is not None:
             hidden_sizes = cli_args.hidden_size
@@ -57,11 +47,9 @@ class NeuralNetwork:
             hidden_sizes = cli_args.num_neurons
 
         if isinstance(hidden_sizes, int):
-            # If a single value is given, replicate it across layers (if num_layers is provided)
             num_layers = getattr(cli_args, "num_layers", getattr(cli_args, "nhl", 1))
             hidden_sizes = [hidden_sizes] * int(num_layers)
         elif hidden_sizes is None:
-            # Sensible default if nothing is provided
             hidden_sizes = [128, 128]
 
         self.hidden_sizes: List[int] = [int(h) for h in hidden_sizes]
@@ -70,7 +58,6 @@ class NeuralNetwork:
         self.activation_name = activation.lower()
         self.loss_name = loss_name.lower()
 
-        # Construct layers (hidden + output)
         self.layers: List[NeuralLayer] = []
 
         in_dim = self.input_dim
@@ -86,7 +73,6 @@ class NeuralNetwork:
             )
             in_dim = h
 
-        # Output layer: linear (no activation), logits of size num_classes
         self.layers.append(
             NeuralLayer(
                 input_dim=in_dim,
@@ -97,31 +83,19 @@ class NeuralNetwork:
             )
         )
 
-        # Optimizer
         self.optimizer = get_optimizer(
             optimizer_name,
             learning_rate=learning_rate,
             weight_decay=weight_decay,
         )
 
-        # Internal caches
         self.last_logits: Optional[np.ndarray] = None
         self.last_probs: Optional[np.ndarray] = None
 
     def forward(self, X: np.ndarray) -> np.ndarray:
-        """
-        Forward propagation through all layers.
-
-        Args:
-            X: Input data of shape (batch_size, input_dim)
-
-        Returns:
-            Output logits of shape (batch_size, num_classes)
-        """
         out = X
         for layer in self.layers:
             out = layer.forward(out)
-
         self.last_logits = out
         return out
 
@@ -129,12 +103,6 @@ class NeuralNetwork:
         self,
         y_true: np.ndarray,
     ) -> Tuple[float, np.ndarray]:
-        """
-        Compute loss and the prediction used for backprop.
-
-        For cross-entropy, applies softmax internally and returns probabilities.
-        For MSE, uses raw logits as predictions.
-        """
         if self.last_logits is None:
             raise RuntimeError("Must call forward() before computing loss.")
 
@@ -153,30 +121,25 @@ class NeuralNetwork:
         raise ValueError(f"Unsupported loss function: {self.loss_name}")
 
     def backward(self, y_true: np.ndarray, y_pred: np.ndarray) -> Tuple[List[np.ndarray], List[np.ndarray]]:
-            if self.loss_name in ("cross_entropy", "crossentropy", "ce"):
-                d_out = cross_entropy_grad(y_true, y_pred)
-            elif self.loss_name in ("mse", "mean_squared_error"):
-                d_out = mse_grad(y_true, y_pred)
-            else:
-                raise ValueError(f"Unsupported loss function: {self.loss_name}")
+        if self.loss_name in ("cross_entropy", "crossentropy", "ce"):
+            d_out = cross_entropy_grad(y_true, y_pred)
+        elif self.loss_name in ("mse", "mean_squared_error"):
+            d_out = mse_grad(y_true, y_pred)
+        else:
+            raise ValueError(f"Unsupported loss function: {self.loss_name}")
 
-            grad = d_out
-            grad_W_list: List[np.ndarray] = []
-            grad_b_list: List[np.ndarray] = []
+        grad = d_out
+        grad_W_list: List[np.ndarray] = []
+        grad_b_list: List[np.ndarray] = []
 
-            # Backpropagate through layers in reverse order
-            for layer in reversed(self.layers):
-                grad = layer.backward(grad)
-                # FIX: Append to return from LAST layer to FIRST layer as per updated guidelines
-                grad_W_list.append(layer.grad_W)
-                grad_b_list.append(layer.grad_b)
+        for layer in reversed(self.layers):
+            grad = layer.backward(grad)
+            grad_W_list.append(layer.grad_W)
+            grad_b_list.append(layer.grad_b)
 
-            return grad_W_list, grad_b_list
+        return grad_W_list, grad_b_list
 
     def update_weights(self) -> None:
-        """
-        Update weights using the optimizer.
-        """
         self.optimizer.step(self.layers)
 
     def train(
@@ -189,21 +152,6 @@ class NeuralNetwork:
         y_val: Optional[np.ndarray] = None,
         wandb_run: Optional[Any] = None,
     ) -> Dict[str, List[float]]:
-        """
-        Train the network for specified epochs.
-
-        Args:
-            X_train: Training inputs, shape (N, input_dim)
-            y_train: Training targets (one-hot), shape (N, num_classes)
-            epochs: Number of epochs
-            batch_size: Mini-batch size
-            X_val: Optional validation inputs
-            y_val: Optional validation targets (one-hot)
-            wandb_run: Optional wandb run object for logging
-
-        Returns:
-            History dictionary with lists of losses and accuracies.
-        """
         num_samples = X_train.shape[0]
         history: Dict[str, List[float]] = {
             "train_loss": [],
@@ -213,17 +161,14 @@ class NeuralNetwork:
         }
 
         for epoch in range(epochs):
-            # Per-epoch diagnostic accumulators
             grad_norms_layer0: List[float] = []
             sparsity_layer0: List[float] = []
 
-            # Shuffle indices
             indices = np.arange(num_samples)
             np.random.shuffle(indices)
             X_train_shuffled = X_train[indices]
             y_train_shuffled = y_train[indices]
 
-            # Mini-batch training
             for start in range(0, num_samples, batch_size):
                 end = start + batch_size
                 X_batch = X_train_shuffled[start:end]
@@ -233,24 +178,20 @@ class NeuralNetwork:
 
                 logits = self.forward(X_batch)
 
-                # Track activation sparsity for the first hidden layer (for W&B analyses)
                 first_layer = self.layers[0]
                 if first_layer.A is not None:
-                    # Fraction of activations that are exactly zero or negative
                     zero_frac = float(np.mean(first_layer.A <= 0.0))
                     sparsity_layer0.append(zero_frac)
 
                 loss, y_out = self.compute_loss_and_output(y_batch)
                 self.backward(y_batch, y_out)
 
-                # Track gradient norm for the first hidden layer (for vanishing gradient analysis)
                 if first_layer.grad_W is not None:
                     grad_norm = float(np.linalg.norm(first_layer.grad_W))
                     grad_norms_layer0.append(grad_norm)
 
                 self.update_weights()
 
-            # End of epoch: evaluate on training (and validation if provided)
             train_loss, train_acc = self.evaluate(X_train, y_train)
             history["train_loss"].append(train_loss)
             history["train_accuracy"].append(train_acc)
@@ -260,13 +201,10 @@ class NeuralNetwork:
                 history["val_loss"].append(val_loss)
                 history["val_accuracy"].append(val_acc)
 
-            # Aggregate diagnostics for the epoch
             if grad_norms_layer0:
-                avg_grad_norm0 = float(np.mean(grad_norms_layer0))
-                history.setdefault("grad_norm_layer0", []).append(avg_grad_norm0)
+                history.setdefault("grad_norm_layer0", []).append(float(np.mean(grad_norms_layer0)))
             if sparsity_layer0:
-                avg_sparsity0 = float(np.mean(sparsity_layer0))
-                history.setdefault("activation_sparsity_layer0", []).append(avg_sparsity0)
+                history.setdefault("activation_sparsity_layer0", []).append(float(np.mean(sparsity_layer0)))
 
             if wandb_run is not None:
                 log_data = {
@@ -290,16 +228,6 @@ class NeuralNetwork:
         X: np.ndarray,
         y: np.ndarray,
     ) -> Tuple[float, float]:
-        """
-        Evaluate the network on given data.
-
-        Args:
-            X: Inputs, shape (N, input_dim)
-            y: Targets (one-hot), shape (N, num_classes)
-
-        Returns:
-            (loss, accuracy)
-        """
         logits = self.forward(X)
         loss, y_pred_for_loss = self.compute_loss_and_output(y)
         y_true_labels = np.argmax(y, axis=1)
@@ -311,19 +239,30 @@ class NeuralNetwork:
         accuracy = float(np.mean(y_pred_labels == y_true_labels))
         return float(loss), accuracy
 
-    def get_weights(self) -> List[np.ndarray]:
-        """Return a flat list of W and b for all layers."""
-        weights = []
-        for layer in self.layers:
-            weights.append(layer.W)
-            weights.append(layer.b)
-        return weights
+    def get_weights(self) -> List[Tuple[np.ndarray, np.ndarray]]:
+        """Return a list of (W, b) tuples for all layers."""
+        return [(layer.W, layer.b) for layer in self.layers]
 
-    def set_weights(self, weights: List[np.ndarray]) -> None:
-        """Set weights for all layers from a flat list."""
-        if len(weights) != len(self.layers) * 2:
-            raise ValueError(f"Expected weights for {len(self.layers)} layers ({len(self.layers)*2} items), got {len(weights)}")
-        for i, layer in enumerate(self.layers):
-            layer.W = weights[2 * i]
-            layer.b = weights[2 * i + 1]
+    def set_weights(self, weights) -> None:
+        """
+        Set weights for all layers.
 
+        Accepts two formats:
+          1. List of (W, b) tuples:  [(W0,b0), (W1,b1), ...]  length == num_layers
+          2. Flat list/array:        [W0, b0, W1, b1, ...]    length == 2 * num_layers
+        """
+        n = len(self.layers)
+        weights = list(weights)
+
+        # Detect flat format: 2*n arrays instead of n (W,b) pairs
+        if len(weights) == 2 * n:
+            weights = [(weights[2 * i], weights[2 * i + 1]) for i in range(n)]
+
+        if len(weights) != n:
+            raise ValueError(
+                f"Expected weights for {n} layers, got {len(weights)}"
+            )
+
+        for layer, (W, b) in zip(self.layers, weights):
+            layer.W = np.array(W, dtype=np.float64)
+            layer.b = np.array(b, dtype=np.float64)
