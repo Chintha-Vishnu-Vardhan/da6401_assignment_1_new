@@ -137,6 +137,10 @@ class NeuralNetwork:
             grad_W_list.append(layer.grad_W)
             grad_b_list.append(layer.grad_b)
 
+        # Return in forward order: layer 0 first, output layer last
+        grad_W_list.reverse()
+        grad_b_list.reverse()
+
         return grad_W_list, grad_b_list
 
     def update_weights(self) -> None:
